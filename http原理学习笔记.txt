@@ -1,0 +1,213 @@
+=================================================================================
+方法Method 
+
+GET
+    获取资源；没有 Body
+        GET /users/1 HTTP/1.1
+        Host: api.github.com
+
+        Retrofit 的代码：
+        
+        @GET("/users/{id}")
+        Call<User> getUser(@Path("id") String id, @Query("gender") String gender);
+
+POST
+    增加或修改资源；有 Body
+        POST /users HTTP/1.1
+        Host: api.github.com
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 13
+        name=rengwuxian&gender=male
+
+        Retrofit 的代码：
+
+        @FormUrlEncoded
+        @POST("/users")
+        Call<User> addUser(@Field("name") String name, @Field("gender") String
+        gender);
+
+PUT
+    修改资源；有 Body 
+
+DELETE
+    删除资源；没有 Body
+
+HEAD
+    几乎同GET  服务器返回内容不返回body只要头部信息 （用下载前请求服务端 看是否支持断点续传、多线程下载）  
+
+除POST之外都是幂等的（其任意多次执行所产生的影响均与一次执行的影响相同）
+只是平时用的不是特别规范 只用到了GET和POST
+
+
+=================================================================================
+响应状态码Status Code （区分用于开发调试和定位）
+
+1XX: 临时性消息 （100多次请求时使用 101服务器支持http2.0）
+2XX: 成功（各种方式的成功）
+3XX: 重定向 （301永久迁移url 302临时迁移 304内容没有改变  用于搜索引擎根据权重分配资源）
+4XX: 客户端错误（400 服务端不知道你发的是啥 401 请求资源时未登陆 404 找不到资源 ）
+5XX: 服务端错误 （资源不足 数据库找不到）
+
+客户端发起请求时 询问服务端是否支持http2.0 （header中 upgrade:h2c） 
+服务端支持返回101 之后客户端可以使用http2.0进行请求
+不支持返回200 之后还有http1.1进行请求 起到兼容作用
+
+客户端发起请求时          （header）期望收到100   因为后面还有请求 服务端返回100即知道是一部分请求
+之后客户端再发起第二次请求  （header）期望收到100   服务端返回100
+。。。
+直到结束为止  服务器返回200    
+
+=================================================================================
+HEADER （http消息的元数据metadata: 数据的属性   客户端和服务端都有）
+    
+    host : 服务器主机地址 （不是用来寻址的）
+
+
+            DNS 域名系统   
+                如访问 www.baidu.com , 之后拿着域名去问DNS，之后DNS返回一个或多个IP；
+
+                        之后根据IP找到对应的服务器去发送报文信息，同时需要携带host
+
+                为什么已经知道服务器IP了，还要携带host信息去访问服务器呢？
+                    因为虚拟服务器的存在，可能一个IP为1.2.3.4的服务器下有多个主机，每个主机下还有主机，
+                    域名为： www.baidu.com / www.bbb.com / www.aaa.com ... （公用IP）
+                        需要携带host去找到对应的服务器
+
+    
+    Content-length: 内容字节长度
+        由于请求时会发送二进制内容 不能通过其他手段来区分什么时候结束（因为可能由特殊字符）
+        这里设置长度之后 服务端只要读完这个长度就算结束 同理客户端也是
+ 
+    Content-Encoding:内容编码格式    
+
+    Content-Type：内容的类型    【客户端、服务端均有】
+
+                 (Retrofit通过注解来实现标记)   
+                  浏览器插件就是根据这个来进行格式化和渲染的
+                  比如浏览器看到是text/html就用html渲染 是application/json就把json串格式化等等
+
+        1.text/html;charset=utf-8         【纯html文本】
+            HTTP/1.1 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 853
+
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+            ......
+
+
+        2.application/json;charset=utf-8  【JSON串】
+
+
+        3.application/x-www-form-urlencoded 【普通表单form】，encoded URL格式 (之后服务端就会去读取form data)
+
+            POST  /users  HTTP/1.1
+            Host: api.github.com
+            Content-Type: application/x-www-form-urlencoded
+            Content-Length: 27
+
+            name=rengwuxian&gender=male
+
+        4.multipart/form-data;boundary=------...... 【二进制表单和文件】
+
+            POST  /users  HTTP/1.1
+            Host: hencoder.com
+            Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW (分割线 框架保证不会与内容重复)
+            Content-Length: 2382
+
+            ------WebKitFormBoundary7MA4YWxkTrZu0gW (分割线  前两个--表示开始)
+            Content-Disposition: form-data; name="name"
+
+            rengwuxian （表单文本）
+            ------WebKitFormBoundary7MA4YWxkTrZu0gW (分割线  前两个--表示开始)
+            Content-Disposition: form-data; name="avatar"; filename="avatar.jpg"
+            Content-Type: image/jpeg
+
+            JFIFHHvOwX口口 mQr Wa......（图片二进制内容）
+            ------WebKitFormBoundary7MA4YWxkTrZu0gW-- (分割线 后两个--表示结束)
+
+        5. image/jpeg  application/zip 【单文件图片】
+            POST /user/1/avatar HTTP/1.1
+            Host: hencoder.com
+            Content-Type: image/jpeg
+            Content-Length: 1575
+
+            JFIFHH9......
+
+            HTTP/1.1 200 OK
+            content-type: image/jpeg
+            content-length: 1575
+
+            JFIFHH9......
+   
+
+    Transfer-Encoding:chunked （分块传输 表示Body不知道多长 即Content-Length不可用）
+                                服务器暂时不能一次响应全部数据，这样性能友好
+        Body 格式：
+            <length1> 已知块长
+            <data1>   已知内容
+            <length2> 已知块长
+            <data2>   已知内容
+            0\n 表示结束）
+
+
+            HTTP/1.1 200 OK 
+            Content-Type: text/html
+            Transfer-Encoding: chunked
+
+            42343
+            Chun...
+            96456
+            ked Trans...
+            122311
+            fer Encoding...
+            0\n
+
+    Location: 重定向的URL （状态码是3xx时 可以看到 浏览器/框架自动重新定向）
+    
+    User-Agent: 用户代理（可以传输一些信息 一般用于区分是什么平台的手机、平板、网页、微信平台等  ）  
+    
+    Range / Accept-Range : byte (指定Body的内容范围 支持分段下载 如百度图片打开时可以看到 )
+                    若支持可以使用Range : 0-xxx 每次分段下载
+
+                    1.用于断点续传
+                    2.多线程下载
+
+
+    Accept开头
+        Accept: */*                可接收的数据类型
+        Accept-Charset：utf-8       可接收的字符集                                      
+        Accept-Encoding:gzip       可接收的压缩编码
+
+
+    Cache-Control: no-cache 服务器告知客户端【可以缓存】 再次使用资源时要先询问服务器是否失效
+                        询问服务器是否失效  (资源是否改变 失效时间是否到达)    
+
+                        Last-Modified（response） : 如果请求的资源最近改变了 服务端把资源响应的同时返回Last-Modified:时间       
+                                                    告知客户端     资源最近什么时候改变啦 
+                                        
+                                        下次请求时 客户端才会询问服务器 if-Modified-Since：时间（request） 这个资源是否最近改变 
+                                        服务器收到后 查询资源那个时间是改变的 则返回最新资源 或告知客户端没变 
+                                        客户端根据结果来判断 没有改变则继续用缓存不再请求 否则使用新资源
+                                        
+
+                        Etag (response) : 文件转化的一种hash 
+                                    客户端携带它 if-None-Match:hash （request）去跟服务端比较  
+                                                          服务器收到后 查询资源是否改变 则返回最新资源 或告知客户端没变  比上面的准                     
+
+                   no-store 不去缓存
+                   max-age  失效日期内访问 直接使用缓存无需询问服务器
+
+                   private/public 由于客户端和服务端之间有很多节点（路由器、交换机、中继器等） 
+                                  告知这些节点是否可以缓存 是客户端私有的 还是对其开放的
+
+
+
+Cache缓存和Buffer缓冲
+    缓存：现在用完了之后还会用
+    缓冲：只针对工作流（生产者-消费者中 哪一方过快进行就需要缓冲）
+
+RESTful : 按照规范去正确使用http，比如该用PUT，DELETE的时候不要只用GET,POST来代替 
+

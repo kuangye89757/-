@@ -1,0 +1,121 @@
+=================================================================================
+自定义View绘制 （到绘制阶段都是像素px）
+	基本要素：onDraw(Canvas)、Canvas、Paint、坐标系、尺寸单位
+
+	dp2px:
+		TypedValue.applyDimension(TypeValue.COMPLEX_UNIT_DIP,150,dp值，Resources.getSystem().getDisplayMetrics());
+
+
+	onSizeChanged(): 在layout之后实际尺寸改变了会调用一次，尺寸不变是不会调用的 
+					 这样每次尺寸变了，path会重置；相比measure不会过多被调用,性能节省
+		
+		@Override
+		protected void onSizeChanged(int w,int h,int oldw,int oldh){
+			super.onSizeChanged(w,h,oldw,oldh);
+
+			path.reset();
+			path.addRect(getWidth() / 2 - 150, getHeight() / 2 - 300, getWidth() / 2 + 150, getHeight() / 2, Path.Direction.CCW)
+
+			path.addCircle(getWidth() / 2, getHeight() / 2, 150, Path.Direction.CCW);
+		}	
+
+
+
+	Path.Direction : 绘制方向，与图像的交叉有关，
+					 从一个绘制的图形中取一个点作射线 （对相交的区域有不同的计算方式，使得有空心和实心的区分）
+
+					 //填充类型策略：EVEN_ODD（偶数)及其反向、WINDING(环绕走廊盘旋)及其反向
+					 //跟顺时针还是逆时针有关，使得填充结果不同
+					 paint.setFillType(Path.FillType.xx)
+
+
+					 射线范围： 该path绘制的图形区域
+
+					 1.WINDING：【用于进行特殊图形的镂空效果，一般将方向设置为统一方向容易判断】
+					 			从绘制图形的内部任何一个点作一条射线，观察传过交点是顺时针过去的（-1），是逆时针过去的（+1）
+					 			最后进行计数
+					 			不为0,这个点在内部 （所以引出的射线只有一个交点就说明在内部 绘制）
+					 			为0， 这个点在外部 （有交集的区域上的点 若发现计数是0 则说明在外部  不绘制）
+
+					 2.EVEN_ODD：【常用做镂空效果,不考虑方向】
+					 			 射线穿过单数条（内部点绘制） 偶数条（外部点不绘制）		
+
+
+	Path.Direction.CW：  顺时针方向绘制 （clockwise）
+	Path.Direction.CCW： 逆时针方向绘制 （counterclockwise）
+		
+		
+	PathMeasure pm = new PathMeasure(path,是否封口)；
+	pm.getLength(); //测量path的长度，若绘制的圆则为周长 	
+
+
+	//绘制弧形 
+	canvas.drawArc(矩形空间Rect,起始角度，扫过的角度);
+
+	X轴向Y轴（向下）靠近就是正向
+
+案例
+==================================================================================================	
+	参见：   DrawSeries中的GraphActivity
+			SportsView -- 文字进度条
+			PieChartView -- 饼图
+			AvatarView -- 各种形状的头像
+			DashBoardView -- 刻度仪
+
+文字绘制
+==================================================================================================
+1.文字对齐
+
+	//文字排印
+	public static class FontMetrics {
+        /**
+         * 能给予文字的顶部最高的位置.
+         */
+        public float   top;
+        /**
+         * 推荐基于基线的顶部
+         */
+        public float   ascent;
+        /**
+         * 推荐基于基线的底部
+         */
+        public float   descent;
+        /**
+         * 能给予文字的底部最低的位置.
+         */
+        public float   bottom;
+        /**
+         * 基线（baseline）
+         */
+        public float   leading;
+    }
+
+    /**
+     * 居中1： (由于基线[drawText的XY坐标]原因 需要获取文字矩形取中点再向基线方向偏移)
+     * 当文字改变时，由于按基线绘制的文字，会出现跳动 【用于固定文字】
+     */
+//        mTextPaint.getTextBounds("abab",0,"abab".length(),mTextRect);
+//        int offset = (mTextRect.top + mTextRect.bottom) / 2;
+
+    /**
+     * 居中2： 使用Paint 的 FontMetrics 见图 文字绘制.jpg
+     * 文字排印方面的数值：ascent, descent, top, bottom，baseline
+     * 其中ascent, descent表示标准文字范围高度 【用于变化文字】
+     */
+    float offset = (mFontMetrics.ascent + mFontMetrics.descent) / 2;
+    //(原有基线Y基础上减去偏移量)
+    canvas.drawText("abap", getWidth() / 2, getHeight() / 2 - offset, mTextPaint);
+
+    /**
+     * 居左 
+     */
+    mTextPaint.setTextAlign(Paint.Align.LEFT);
+    //由于基准线的X并不是文字左边，会有一些偏移 见图 文字基准点.jpg
+    canvas.drawText("abao",0,200,mTextPaint);
+
+    //真正的无缝隙居左 (原有基线X基础上减去文字矩形左边)
+    mTextPaint.getTextBounds("abao",0,"abao".length(),mTextRect);
+    canvas.drawText("abao",0 - mTextRect.left,200 + mTextPaint.getFontSpacing()/**得到行距*/,mTextPaint);
+    
+
+    

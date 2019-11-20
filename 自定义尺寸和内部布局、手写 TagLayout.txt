@@ -1,0 +1,68 @@
+自定义尺寸和内部布局、手写 TagLayout
+============================================================================================================
+布局
+	确定每个View的位置和尺寸
+
+	作用：为绘制和触摸反馈做支持
+		绘制：知道在哪里绘制
+		触摸反馈：知道用户点的是哪里
+
+
+从整体来看：
+	测量流程：从根View递归调用每一级的子View的measure方法,对它们进行测量
+	布局流程：从根View递归调用每一级的子View的layout方法，把测量得到的子View的尺寸和父View算出的位置传给子View，子View保存		
+
+	由于实际过程中测量方法会调用多次才能算出真正尺寸，有些情况需要多个子View一起确定之后才能进行布局；所以拆成了测量和布局两个流程
+
+	子View(ImageView)是match_parent, 父View（LinearLayout）是wrap_content 如何计算？？
+		外面说：你里面要多大就多大
+		里面说：你外面有多大我就多大
+
+		第一遍测量： 若子View宽是match_parent的话，暂时定它的宽为0；去对能确定的子View进行测量，最终确定父View的宽
+		第二遍测量： 已确认父View的宽，此时第二遍将match_parent的子View的宽设置成父View的宽
+
+		....
+		
+		布局： ....
+
+		这也就是多次测量的意义，以及为什么拆分成测量和布局两个流程
+
+
+从个体看，对于每个子View：
+	1.运行前，开发者在xml或代码中【写入对View的尺寸要求】  layout_xxx
+	2.父View在onMeasure方法中，根据开发者写的子View的要求，同父View自身剩余空间；得到【对子View的尺寸要求】   需要父View统一计算
+	3.子View在onMeasure方法中，根据自身特性【算出期望的尺寸】；
+		若子View为ViewGroup则调用每个子View的measure方法进行测量
+	4.父View在得到子View期望的尺寸之后，得出【实际子View尺寸】
+	5.子View在onLayout中获取到父View传给子View的实际尺寸和位置，并保存
+		若子View为ViewGroup则调用每个子View的layout方法把它们的尺寸传给它们
+
+
+
+	简单改写已有的View的尺寸
+		1.重写onMeasure()
+		2.用getMeasuredWidth() 和 getMeasuredHeight 获取到测量出的尺寸
+		3.计算出最终的尺寸
+		4.用setMeasuredDimension(width,height)把结果保存 
+                                                                                                                                                                                                                                                                                                                                  
+============================================================================================================
+触摸反馈
+	重写onTouchEvent,在方法内部定制触摸反馈算法
+		是否消费事件取决于ACTION_DOWN事件 或 POINTER_DOWN事件是否返回true
+
+
+	多点触控之后 引入getActionMasked()		 之后只需要使用getActionMasked()代替原来的getAction()
+		POINTER_DOWN/ POINTER_UP 再使用getActionMasked()	才会有意义
+
+		getActionIndex() 第几个手指
+
+
+
+ mPrivateFlags |= PFLAG_PREPRESSED; //设置标识
+ mPrivateFlags &= ~PFLAG_PREPRESSED;//清除标识
+
+
+ 000 |= 010 之后就变成了 010
+ 010 &= 101 之后就变成了 000
+
+                                                                                                                                                                                                                                                                                                                                  for (ReWardBean wardBean : rewardMap.values(
